@@ -1,0 +1,32 @@
+<!-- login_system/templates/upload_override.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Upload Custom Image</title>
+</head>
+<body>
+  <h2>Upload a Custom Image for a Number (0–99)</h2>
+
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      <ul>
+        {% for message in messages %}
+          <li style="color: green;">{{ message }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  {% endwith %}
+
+  <form method="post" enctype="multipart/form-data">
+    <label>Image Number:</label>
+    <input type="number" name="image_number" min="0" max="99" required><br><br>
+
+    <input type="file" name="image" accept="image/*" required><br><br>
+
+    <button type="submit">Upload</button>
+  </form>
+
+  <br><a href="/quiz">⬅ Back to Quiz</a>
+</body>
+</html>

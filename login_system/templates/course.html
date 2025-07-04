@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>My Course</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="auth-page">
+  <div class="auth-container">
+    <h2>Welcome, {{ username }}!</h2>
+    <h3>📚 My Video Course</h3>
+
+    <iframe src="https://player.vimeo.com/video/76979871" 
+          frameborder="0" 
+          allow="autoplay; fullscreen; picture-in-picture" 
+          allowfullscreen>
+  </iframe>
+  
+    <p><a href="/quiz">Go to Quiz</a> | <a href="/logout">Logout</a></p>
+  </div>
+</body>
+</html>
