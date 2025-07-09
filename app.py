@@ -1,75 +1,70 @@
 import os
+import random
 from flask import Flask, render_template, request, redirect, session, url_for, flash
+from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-from flask_sqlalchemy import SQLAlchemy
 
-# --- Flask App Setup ---
+# --- Flask Setup ---
 app = Flask(
     __name__,
     static_folder=os.path.join('login_system', 'static'),
     template_folder=os.path.join('login_system', 'templates')
 )
-app.secret_key = os.environ.get('SECRET_KEY', 'fallback_secret')
+app.secret_key = os.environ.get("SECRET_KEY", "default_dev_secret")
 
-# --- Database Config ---
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
+# --- Config ---
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get("DATABASE_URL", "sqlite:///users.db")
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-db = SQLAlchemy(app)
-
-# --- Upload Config ---
 UPLOAD_FOLDER = os.path.join('login_system', 'static', 'user_uploads')
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+db = SQLAlchemy(app)
 
 # --- Models ---
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(100), unique=True, nullable=False)
-    password_hash = db.Column(db.String(128), nullable=False)
-
-    def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
-
-    def check_password(self, password):
-        return check_password_hash(self.password_hash, password)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password = db.Column(db.String(200), nullable=False)
 
 class UserImage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     image_number = db.Column(db.Integer, nullable=False)
-    image_path = db.Column(db.String(255), nullable=False)
-    __table_args__ = (db.UniqueConstraint('user_id', 'image_number', name='_user_image_uc'),)
+    image_path = db.Column(db.String(300), nullable=False)
+    __table_args__ = (db.UniqueConstraint('user_id', 'image_number'),)
+
+# --- Auto-create Tables on First Request ---
+@app.before_first_request
+def create_tables():
+    db.create_all()
 
 # --- Helpers ---
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def get_username(user_id):
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     return user.username if user else ""
 
 def get_user_image(user_id, image_number):
-    record = UserImage.query.filter_by(user_id=user_id, image_number=image_number).first()
-    if record:
-        print(f"[Override] {image_number} -> {record.image_path}")
-        return url_for('static', filename=record.image_path)
+    entry = UserImage.query.filter_by(user_id=user_id, image_number=image_number).first()
+    if entry:
+        print(f"[Override] {image_number} -> {entry.image_path}")
+        return url_for('static', filename=entry.image_path)
 
     default_jpg = f'images/{image_number}.jpg'
     default_png = f'images/{image_number}.png'
     static_dir = os.path.join('login_system', 'static')
 
     if os.path.exists(os.path.join(static_dir, default_jpg)):
-        print(f"[Default JPG] {image_number} -> {default_jpg}")
         return url_for('static', filename=default_jpg)
-
     if os.path.exists(os.path.join(static_dir, default_png)):
-        print(f"[Default PNG] {image_number} -> {default_png}")
         return url_for('static', filename=default_png)
 
-    print(f"[Missing image] {image_number}")
     return url_for('static', filename='images/placeholder.png')
 
 # --- Routes ---
@@ -81,16 +76,15 @@ def home():
 def register():
     if request.method == 'POST':
         username = request.form['username']
-        password = request.form['password']
-
-        if User.query.filter_by(username=username).first():
+        password_hash = generate_password_hash(request.form['password'])
+        try:
+            user = User(username=username, password=password_hash)
+            db.session.add(user)
+            db.session.commit()
+            return redirect('/login')
+        except:
+            db.session.rollback()
             return "Username already exists. <a href='/register'>Try again</a>"
-
-        user = User(username=username)
-        user.set_password(password)
-        db.session.add(user)
-        db.session.commit()
-        return redirect('/login')
     return render_template("register.html")
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -99,11 +93,9 @@ def login():
         username = request.form['username']
         password = request.form['password']
         user = User.query.filter_by(username=username).first()
-
-        if user and user.check_password(password):
+        if user and check_password_hash(user.password, password):
             session['user_id'] = user.id
             return redirect('/quiz')
-
         return "Invalid credentials. <a href='/login'>Try again</a>"
     return render_template("login.html")
 
@@ -116,7 +108,6 @@ def logout():
 def quiz():
     if 'user_id' not in session:
         return redirect('/login')
-
     user_id = session['user_id']
     image_map = {i: get_user_image(user_id, i) for i in range(100)}
     return render_template("quiz.html", image_map=image_map, username=get_username(user_id))
@@ -141,17 +132,17 @@ def upload_override():
         save_path = os.path.join(user_folder, f'{image_number}_{filename}')
         file.save(save_path)
 
-        relative_path = os.path.relpath(save_path, os.path.join('login_system', 'static')).replace("\\", "/")
+        rel_path = os.path.relpath(save_path, os.path.join('login_system', 'static')).replace("\\", "/")
 
-        existing = UserImage.query.filter_by(user_id=user_id, image_number=image_number).first()
-        if existing:
-            existing.image_path = relative_path
+        image = UserImage.query.filter_by(user_id=user_id, image_number=image_number).first()
+        if image:
+            image.image_path = rel_path
         else:
-            new_image = UserImage(user_id=user_id, image_number=image_number, image_path=relative_path)
-            db.session.add(new_image)
+            image = UserImage(user_id=user_id, image_number=image_number, image_path=rel_path)
+            db.session.add(image)
         db.session.commit()
 
-        flash(f"Custom image for number {image_number} uploaded.")
+        flash(f"Image for {image_number} uploaded.")
         return redirect(request.url)
 
     return render_template("upload_override.html")
@@ -160,10 +151,4 @@ def upload_override():
 def course():
     if 'user_id' not in session:
         return redirect('/login')
-    user = User.query.get(session['user_id'])
-    return render_template("course.html", username=user.username if user else "")
-
-if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-    app.run(debug=True)
+    return render_template("course.html", username=get_username(session['user_id']))
