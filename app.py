@@ -52,13 +52,15 @@ def get_user_image(user_id, image_number):
     if entry:
         return url_for('static', filename=entry.image_path)
 
-    # Default fallback
+    # Default fallback (use resized images)
     for ext in ('jpg', 'png'):
-        path = f'images/{image_number}.{ext}'
-        if os.path.exists(os.path.join('login_system', 'static', path)):
-            return url_for('static', filename=path)
+        resized_path = f'images_resized/{image_number}.{ext}'
+        full_path = os.path.join('login_system', 'static', resized_path)
+        if os.path.exists(full_path):
+            return url_for('static', filename=resized_path)
 
     return url_for('static', filename='images/placeholder.png')
+
 
 # --- Routes ---
 @app.route('/')
