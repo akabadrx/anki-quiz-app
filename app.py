@@ -1,6 +1,6 @@
 import os
 import random
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, session
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.utils import secure_filename
 
@@ -24,14 +24,9 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 db = SQLAlchemy(app)
 
 # --- Models ---
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    password = db.Column(db.String(200), nullable=False)
-
 class UserImage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, nullable=False)
+    user_id = db.Column(db.String(100), nullable=False)  # changed to string for nickname
     image_number = db.Column(db.Integer, nullable=False)
     image_path = db.Column(db.String(300), nullable=False)
     __table_args__ = (db.UniqueConstraint('user_id', 'image_number'),)
@@ -40,14 +35,9 @@ class UserImage(db.Model):
 with app.app_context():
     db.create_all()
 
-
 # --- Helpers ---
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-def get_username(user_id):
-    user = db.session.get(User, user_id)
-    return user.username if user else f"User {user_id}"
 
 def get_user_image(user_id, image_number):
     entry = UserImage.query.filter_by(user_id=user_id, image_number=image_number).first()
@@ -68,17 +58,41 @@ def get_user_image(user_id, image_number):
 # --- Routes ---
 @app.route('/')
 def home():
+    if 'user_id' not in session:
+        return redirect('/start')
     return redirect('/quiz')
+
+@app.route('/start', methods=['GET', 'POST'])
+def start():
+    if request.method == 'POST':
+        nickname = request.form['nickname'].strip()
+        if not nickname:
+            flash("Nickname cannot be empty.")
+            return redirect('/start')
+        session['user_id'] = nickname
+        return redirect('/quiz')
+    return '''
+        <form method="post">
+            <label>Enter a unique nickname:</label><br>
+            <input name="nickname" required>
+            <input type="submit" value="Start">
+        </form>
+    '''
 
 @app.route('/quiz')
 def quiz():
-    user_id = 1  # ثابت
+    user_id = session.get('user_id')
+    if not user_id:
+        return redirect('/start')
     image_map = {i: get_user_image(user_id, i) for i in range(100)}
-    return render_template("quiz.html", image_map=image_map, username=get_username(user_id))
+    return render_template("quiz.html", image_map=image_map, username=user_id)
 
 @app.route('/upload_override', methods=['GET', 'POST'])
 def upload_override():
-    user_id = 1  # ثابت أو اجعله ديناميكيًا في المستقبل
+    user_id = session.get('user_id')
+    if not user_id:
+        return redirect('/start')
+
     if request.method == 'POST':
         image_number = int(request.form['image_number'])
         file = request.files.get('image')
@@ -88,19 +102,14 @@ def upload_override():
             return redirect(request.url)
 
         filename = secure_filename(file.filename)
-
-        # ✅ User-specific subfolder
         user_folder = os.path.join(app.config['UPLOAD_FOLDER'], f"user_{user_id}")
         os.makedirs(user_folder, exist_ok=True)
 
-        # ✅ Save with unique filename inside user's folder
         save_path = os.path.join(user_folder, f"{image_number}_{filename}")
         file.save(save_path)
 
-        # ✅ Save relative path that includes user folder
         rel_path = os.path.relpath(save_path, os.path.join('login_system', 'static')).replace("\\", "/")
 
-        # ✅ Save to DB
         image = UserImage.query.filter_by(user_id=user_id, image_number=image_number).first()
         if image:
             image.image_path = rel_path
@@ -113,9 +122,16 @@ def upload_override():
         return redirect(request.url)
 
     return render_template("upload_override.html")
+
+@app.route('/course')
+def course():
+    return render_template("course.html", username=session.get('user_id', 'Guest'))
+
 @app.route('/admin/delete_db_entry/<int:image_number>')
 def delete_db_entry(image_number):
-    user_id = 1  # fixed user
+    user_id = session.get('user_id')
+    if not user_id:
+        return "⚠️ No user session"
     entry = UserImage.query.filter_by(user_id=user_id, image_number=image_number).first()
     if entry:
         db.session.delete(entry)
