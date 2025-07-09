@@ -1,84 +1,32 @@
-<!-- login_system/templates/upload_override.html -->
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar">
 <head>
   <meta charset="UTF-8">
   <title>رفع صورة مخصصة</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 2rem;
-      background-color: #f8f8f8;
-      text-align: center;
-    }
-    form {
-      background-color: #fff;
-      padding: 1.5rem;
-      border-radius: 10px;
-      display: inline-block;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-    label {
-      font-size: 1.1rem;
-    }
-    input[type="number"],
-    input[type="file"] {
-      margin: 0.5rem 0;
-    }
-    button {
-      padding: 0.5rem 1rem;
-      font-size: 1rem;
-      background-color: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-    button:hover {
-      background-color: #45a049;
-    }
-    .message {
-      color: green;
-      margin: 1rem 0;
-    }
-    nav {
-      margin-bottom: 1rem;
-    }
-    nav a {
-      margin: 0 1rem;
-      text-decoration: none;
-      color: #007BFF;
-    }
-  </style>
 </head>
 <body>
-
-  <nav>
-    <a href="/quiz">📊 العودة للتمرين</a>
-    <a href="/course">📘 الدورة</a>
-  </nav>
-
-  <h2>رفع صورة مخصصة لرقم (0–99)</h2>
+  <h2>رفع صورة لرقم (من 0 إلى 99)</h2>
 
   {% with messages = get_flashed_messages() %}
     {% if messages %}
-      <div class="message">
+      <ul>
         {% for message in messages %}
-          <p>{{ message }}</p>
+          <li style="color: green;">{{ message }}</li>
         {% endfor %}
-      </div>
+      </ul>
     {% endif %}
   {% endwith %}
 
   <form method="post" enctype="multipart/form-data">
-    <label>رقم الصورة:</label><br>
+    <label>رقم الصورة:</label>
     <input type="number" name="image_number" min="0" max="99" required><br><br>
 
-    <label>اختر صورة:</label><br>
+    <label>اختر الصورة:</label>
     <input type="file" name="image" accept="image/*" required><br><br>
 
-    <button type="submit">رفع الصورة</button>
+    <button type="submit">رفع</button>
   </form>
 
+  <br><a href="/quiz">⬅ العودة إلى التمرين</a>
 </body>
 </html>

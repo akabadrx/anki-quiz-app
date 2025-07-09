@@ -35,52 +35,47 @@ class UserImage(db.Model):
 with app.app_context():
     db.create_all()
 
-# --- Before Each Request: Ensure User ID in Cookie ---
-@app.before_request
-def ensure_user_cookie():
-    if not request.cookies.get("user_id"):
-        user_id = str(uuid.uuid4())
-        resp = make_response(redirect(request.url))
-        resp.set_cookie("user_id", user_id, max_age=60*60*24*365*5)  # 5 سنوات
-        return resp
-
 # --- Helpers ---
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def get_user_id():
-    return request.cookies.get("user_id")
+def get_or_create_user_id(request, response=None):
+    user_id = request.cookies.get('user_id')
+    if not user_id:
+        user_id = str(uuid.uuid4())
+        if response:
+            response.set_cookie('user_id', user_id, max_age=60*60*24*365*5)  # 5 years
+    return user_id
 
 def get_user_image(user_id, image_number):
     entry = UserImage.query.filter_by(user_id=user_id, image_number=image_number).first()
     if entry:
         return url_for('static', filename=entry.image_path)
 
-    default_jpg = f'images/{image_number}.jpg'
-    default_png = f'images/{image_number}.png'
-    static_dir = os.path.join('login_system', 'static')
-
-    if os.path.exists(os.path.join(static_dir, default_jpg)):
-        return url_for('static', filename=default_jpg)
-    if os.path.exists(os.path.join(static_dir, default_png)):
-        return url_for('static', filename=default_png)
+    # Default fallback
+    for ext in ('jpg', 'png'):
+        path = f'images/{image_number}.{ext}'
+        if os.path.exists(os.path.join('login_system', 'static', path)):
+            return url_for('static', filename=path)
 
     return url_for('static', filename='images/placeholder.png')
 
 # --- Routes ---
 @app.route('/')
 def home():
-    return redirect('/quiz')
+    response = make_response(redirect('/quiz'))
+    get_or_create_user_id(request, response)
+    return response
 
 @app.route('/quiz')
 def quiz():
-    user_id = get_user_id()
+    user_id = get_or_create_user_id(request)
     image_map = {i: get_user_image(user_id, i) for i in range(100)}
     return render_template("quiz.html", image_map=image_map, username=user_id)
 
 @app.route('/upload_override', methods=['GET', 'POST'])
 def upload_override():
-    user_id = get_user_id()
+    user_id = get_or_create_user_id(request)
 
     if request.method == 'POST':
         image_number = int(request.form['image_number'])
@@ -114,11 +109,11 @@ def upload_override():
 
 @app.route('/course')
 def course():
-    return render_template("course.html", username=get_user_id())
+    return render_template("course.html", username=get_or_create_user_id(request))
 
 @app.route('/admin/delete_db_entry/<int:image_number>')
 def delete_db_entry(image_number):
-    user_id = get_user_id()
+    user_id = get_or_create_user_id(request)
     entry = UserImage.query.filter_by(user_id=user_id, image_number=image_number).first()
     if entry:
         db.session.delete(entry)
