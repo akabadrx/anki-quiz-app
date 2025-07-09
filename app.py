@@ -113,3 +113,12 @@ def upload_override():
         return redirect(request.url)
 
     return render_template("upload_override.html")
+@app.route('/admin/delete_db_entry/<int:image_number>')
+def delete_db_entry(image_number):
+    user_id = 1  # fixed user
+    entry = UserImage.query.filter_by(user_id=user_id, image_number=image_number).first()
+    if entry:
+        db.session.delete(entry)
+        db.session.commit()
+        return f"✅ Deleted DB record for image {image_number}"
+    return f"⚠️ No DB entry found for image {image_number}"
