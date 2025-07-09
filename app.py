@@ -78,7 +78,7 @@ def quiz():
 
 @app.route('/upload_override', methods=['GET', 'POST'])
 def upload_override():
-    user_id = 1  # ثابت
+    user_id = 1  # ثابت أو اجعله ديناميكيًا في المستقبل
     if request.method == 'POST':
         image_number = int(request.form['image_number'])
         file = request.files.get('image')
@@ -88,13 +88,19 @@ def upload_override():
             return redirect(request.url)
 
         filename = secure_filename(file.filename)
-        user_folder = os.path.join(app.config['UPLOAD_FOLDER'], str(user_id))
+
+        # ✅ User-specific subfolder
+        user_folder = os.path.join(app.config['UPLOAD_FOLDER'], f"user_{user_id}")
         os.makedirs(user_folder, exist_ok=True)
-        save_path = os.path.join(user_folder, f'{image_number}_{filename}')
+
+        # ✅ Save with unique filename inside user's folder
+        save_path = os.path.join(user_folder, f"{image_number}_{filename}")
         file.save(save_path)
 
+        # ✅ Save relative path that includes user folder
         rel_path = os.path.relpath(save_path, os.path.join('login_system', 'static')).replace("\\", "/")
 
+        # ✅ Save to DB
         image = UserImage.query.filter_by(user_id=user_id, image_number=image_number).first()
         if image:
             image.image_path = rel_path
@@ -107,7 +113,3 @@ def upload_override():
         return redirect(request.url)
 
     return render_template("upload_override.html")
-
-@app.route('/course')
-def course():
-    return render_template("course.html", username=get_username(1))
