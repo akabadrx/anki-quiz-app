@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Number-Image Quiz</title>
+  <title>تمرين الأرقام</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -32,28 +32,43 @@
       font-size: 1rem; color: #444; margin-top: 1rem;
     }
     #wrong-list { color: #b00; }
+    nav {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    nav a {
+      text-decoration: none;
+      padding: 0.5rem 1rem;
+      background-color: #eee;
+      border-radius: 6px;
+      color: #333;
+    }
     @media (max-width: 600px) {
-      body { padding: 1rem; }
-      h1 { font-size: 1.5rem; }
-      #number-display { font-size: 2.5rem; }
       .option { width: 40vw; }
     }
   </style>
 </head>
 <body>
-  <a href="/course">🎓 Course</a>
+  <nav>
+    <a href="/course">📘 الدورة</a>
+    <a href="/upload_override">📤 رفع صورة</a>
+    <a href="/logout">🚪 خروج</a>
+  </nav>
+
   <h1>تمرين قراءة الأرقام السريع</h1>
-  <p>Welcome, {{ username }}! <a href="/logout">Logout</a> | <a href="/upload_override">Upload Image</a></p>
+  <p>مرحباً، {{ username }}!</p>
 
   <div id="number-display"></div>
   <div class="image-options" id="image-options"></div>
   <div id="progress"></div>
   <div id="score">Score: 0</div>
-  <div id="wrong-list">Wrong Answers: None</div>
+  <div id="wrong-list">الأخطاء: لا يوجد</div>
 
   <script>
     const imageMap = JSON.parse('{{ image_map | tojson | safe }}');
-        let numbersPool = Array.from({ length: 100 }, (_, i) => i);
+    let numbersPool = Array.from({ length: 100 }, (_, i) => i);
     let currentNumber = null;
     let score = 0;
     let wrongAnswers = [];
@@ -77,15 +92,15 @@
     }
 
     function updateWrongList() {
-      const wrongList = wrongAnswers.length > 0 ? wrongAnswers.join(", ") : "None";
-      document.getElementById("wrong-list").textContent = `Wrong Answers: ${wrongList}`;
+      const wrongList = wrongAnswers.length > 0 ? wrongAnswers.join(", ") : "لا يوجد";
+      document.getElementById("wrong-list").textContent = `الأخطاء: ${wrongList}`;
     }
 
     function loadNext() {
       if (numbersPool.length === 0 || score >= 100) {
-        document.getElementById("number-display").textContent = "🎉 You Win! 🎉";
+        document.getElementById("number-display").textContent = "🎉 أحسنت! 🎉";
         document.getElementById("image-options").innerHTML = "";
-        document.getElementById("progress").textContent = `Final Score: ${score}`;
+        document.getElementById("progress").textContent = `النتيجة النهائية: ${score}`;
         return;
       }
 
