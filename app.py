@@ -1,6 +1,6 @@
 import os
-import random
-from flask import Flask, render_template, request, redirect, url_for, flash, session
+import uuid
+from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.utils import secure_filename
 
@@ -26,7 +26,7 @@ db = SQLAlchemy(app)
 # --- Models ---
 class UserImage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.String(100), nullable=False)  # changed to string for nickname
+    user_id = db.Column(db.String(100), nullable=False)
     image_number = db.Column(db.Integer, nullable=False)
     image_path = db.Column(db.String(300), nullable=False)
     __table_args__ = (db.UniqueConstraint('user_id', 'image_number'),)
@@ -38,6 +38,11 @@ with app.app_context():
 # --- Helpers ---
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def get_user_id():
+    if 'user_id' not in session:
+        session['user_id'] = str(uuid.uuid4())  # generate persistent ID
+    return session['user_id']
 
 def get_user_image(user_id, image_number):
     entry = UserImage.query.filter_by(user_id=user_id, image_number=image_number).first()
@@ -58,40 +63,18 @@ def get_user_image(user_id, image_number):
 # --- Routes ---
 @app.route('/')
 def home():
-    if 'user_id' not in session:
-        return redirect('/start')
+    get_user_id()  # ensure user ID is set
     return redirect('/quiz')
-
-@app.route('/start', methods=['GET', 'POST'])
-def start():
-    if request.method == 'POST':
-        nickname = request.form['nickname'].strip()
-        if not nickname:
-            flash("Nickname cannot be empty.")
-            return redirect('/start')
-        session['user_id'] = nickname
-        return redirect('/quiz')
-    return '''
-        <form method="post">
-            <label>Enter a unique nickname:</label><br>
-            <input name="nickname" required>
-            <input type="submit" value="Start">
-        </form>
-    '''
 
 @app.route('/quiz')
 def quiz():
-    user_id = session.get('user_id')
-    if not user_id:
-        return redirect('/start')
+    user_id = get_user_id()
     image_map = {i: get_user_image(user_id, i) for i in range(100)}
     return render_template("quiz.html", image_map=image_map, username=user_id)
 
 @app.route('/upload_override', methods=['GET', 'POST'])
 def upload_override():
-    user_id = session.get('user_id')
-    if not user_id:
-        return redirect('/start')
+    user_id = get_user_id()
 
     if request.method == 'POST':
         image_number = int(request.form['image_number'])
@@ -125,13 +108,11 @@ def upload_override():
 
 @app.route('/course')
 def course():
-    return render_template("course.html", username=session.get('user_id', 'Guest'))
+    return render_template("course.html", username=get_user_id())
 
 @app.route('/admin/delete_db_entry/<int:image_number>')
 def delete_db_entry(image_number):
-    user_id = session.get('user_id')
-    if not user_id:
-        return "⚠️ No user session"
+    user_id = get_user_id()
     entry = UserImage.query.filter_by(user_id=user_id, image_number=image_number).first()
     if entry:
         db.session.delete(entry)

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <title>بدء الاستخدام</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f4f4f4;
+            text-align: center;
+            padding-top: 80px;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            width: 350px;
+            margin: auto;
+            box-shadow: 0 0 10px rgba(0,0,0,0.15);
+        }
+        input[type="text"] {
+            padding: 10px;
+            width: 80%;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            margin-top: 20px;
+            font-size: 16px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>مرحبًا بك في اختبار الأرقام</h2>
+        <form method="POST">
+            <p>من فضلك أدخل اسمًا مستعارًا لبدء الاستخدام:</p>
+            <input type="text" name="nickname" placeholder="اسمك المستعار" required>
+            <br>
+            <button type="submit">ابدأ</button>
+        </form>
+    </div>
+</body>
+</html>
