@@ -1,6 +1,6 @@
 import os
 import uuid
-from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response
+from flask import Flask, render_template, request, redirect, url_for, flash, make_response
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.utils import secure_filename
 
@@ -35,14 +35,21 @@ class UserImage(db.Model):
 with app.app_context():
     db.create_all()
 
+# --- Before Each Request: Ensure User ID in Cookie ---
+@app.before_request
+def ensure_user_cookie():
+    if not request.cookies.get("user_id"):
+        user_id = str(uuid.uuid4())
+        resp = make_response(redirect(request.url))
+        resp.set_cookie("user_id", user_id, max_age=60*60*24*365*5)  # 5 سنوات
+        return resp
+
 # --- Helpers ---
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def get_user_id():
-    if 'user_id' not in session:
-        session['user_id'] = str(uuid.uuid4())  # generate persistent ID
-    return session['user_id']
+    return request.cookies.get("user_id")
 
 def get_user_image(user_id, image_number):
     entry = UserImage.query.filter_by(user_id=user_id, image_number=image_number).first()
@@ -63,7 +70,6 @@ def get_user_image(user_id, image_number):
 # --- Routes ---
 @app.route('/')
 def home():
-    get_user_id()  # ensure user ID is set
     return redirect('/quiz')
 
 @app.route('/quiz')
