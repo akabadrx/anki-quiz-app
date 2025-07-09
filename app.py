@@ -37,9 +37,9 @@ class UserImage(db.Model):
     __table_args__ = (db.UniqueConstraint('user_id', 'image_number'),)
 
 # --- Auto-create Tables on First Request ---
-@app.before_first_request
-def create_tables():
+with app.app_context():
     db.create_all()
+
 
 # --- Helpers ---
 def allowed_file(filename):
