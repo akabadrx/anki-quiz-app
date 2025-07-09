@@ -1,8 +1,7 @@
 import os
 import random
-from flask import Flask, render_template, request, redirect, session, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
-from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 
 # --- Flask Setup ---
@@ -32,7 +31,7 @@ class User(db.Model):
 
 class UserImage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    user_id = db.Column(db.Integer, nullable=False)
     image_number = db.Column(db.Integer, nullable=False)
     image_path = db.Column(db.String(300), nullable=False)
     __table_args__ = (db.UniqueConstraint('user_id', 'image_number'),)
@@ -48,12 +47,11 @@ def allowed_file(filename):
 
 def get_username(user_id):
     user = db.session.get(User, user_id)
-    return user.username if user else ""
+    return user.username if user else f"User {user_id}"
 
 def get_user_image(user_id, image_number):
     entry = UserImage.query.filter_by(user_id=user_id, image_number=image_number).first()
     if entry:
-        print(f"[Override] {image_number} -> {entry.image_path}")
         return url_for('static', filename=entry.image_path)
 
     default_jpg = f'images/{image_number}.jpg'
@@ -70,53 +68,17 @@ def get_user_image(user_id, image_number):
 # --- Routes ---
 @app.route('/')
 def home():
-    return redirect('/quiz') if 'user_id' in session else redirect('/login')
-
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        username = request.form['username']
-        password_hash = generate_password_hash(request.form['password'])
-        try:
-            user = User(username=username, password=password_hash)
-            db.session.add(user)
-            db.session.commit()
-            return redirect('/login')
-        except:
-            db.session.rollback()
-            return "Username already exists. <a href='/register'>Try again</a>"
-    return render_template("register.html")
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        user = User.query.filter_by(username=username).first()
-        if user and check_password_hash(user.password, password):
-            session['user_id'] = user.id
-            return redirect('/quiz')
-        return "Invalid credentials. <a href='/login'>Try again</a>"
-    return render_template("login.html")
-
-@app.route('/logout')
-def logout():
-    session.clear()
-    return redirect('/login')
+    return redirect('/quiz')
 
 @app.route('/quiz')
 def quiz():
-    if 'user_id' not in session:
-        return redirect('/login')
-    user_id = session['user_id']
+    user_id = 1  # ثابت
     image_map = {i: get_user_image(user_id, i) for i in range(100)}
     return render_template("quiz.html", image_map=image_map, username=get_username(user_id))
 
 @app.route('/upload_override', methods=['GET', 'POST'])
 def upload_override():
-    if 'user_id' not in session:
-        return redirect('/login')
-
+    user_id = 1  # ثابت
     if request.method == 'POST':
         image_number = int(request.form['image_number'])
         file = request.files.get('image')
@@ -126,7 +88,6 @@ def upload_override():
             return redirect(request.url)
 
         filename = secure_filename(file.filename)
-        user_id = session['user_id']
         user_folder = os.path.join(app.config['UPLOAD_FOLDER'], str(user_id))
         os.makedirs(user_folder, exist_ok=True)
         save_path = os.path.join(user_folder, f'{image_number}_{filename}')
@@ -149,6 +110,4 @@ def upload_override():
 
 @app.route('/course')
 def course():
-    if 'user_id' not in session:
-        return redirect('/login')
-    return render_template("course.html", username=get_username(session['user_id']))
+    return render_template("course.html", username=get_username(1))
